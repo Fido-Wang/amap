@@ -4,6 +4,8 @@
       <router-link to="/">Home</router-link> |
       <router-link to="/about">About</router-link>
       <router-link to="/truck">TruckView</router-link>
+      <router-link to="/3damap">3D-Amap</router-link>
+      <router-link to="/mapEdit">地图编辑器</router-link>
     </nav>
     <router-view/>
   </div>

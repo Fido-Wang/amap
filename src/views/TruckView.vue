@@ -7,7 +7,6 @@
           :marks="timeMarks"
           @input="changeTimeHole"
       >
-<!--          :step="sliderStep"-->
       </el-slider>
     </el-footer>
     <el-footer>
@@ -28,6 +27,7 @@ export default {
   name: "TruckView",
   data() {
     return {
+      step: 4,
       map: null,
       polyline: null,
       marker: null,
@@ -42,7 +42,9 @@ export default {
         // 100: '13:00',
       },
       sliderStep: 0,
-      allPoint: []
+      allPoint: [],
+      beforePoint: 0,
+      afterPoint: 0
     }
   },
   beforeCreate() {
@@ -146,12 +148,13 @@ export default {
     //Code Start.
     async onInit(arr) {
       const that = this;
+      window._AMapSecurityConfig = { securityJsCode: '0295a40cdfa87f135af49203300acc42' };
       await AMapLoader.load({
-        key: "089cadefca987b96324e8c7a431e31eb",             // 申请好的Web端开发者Key，首次调用 load 时必填
+        key: "adf74d4d0b2c6ba04589f1e79183c3e4",             // 申请好的Web端开发者Key，首次调用 load 时必填
         version: "2.0",      // 指定要加载的 JSAPI 的版本，缺省时默认为 1.4.15
         plugins: ['AMap.MoveAnimation'],       // 需要使用的的插件列表， 如比例尺'AMap.Scale'等
       }).then((AMap) => {
-        this.map = new AMap.Map("container", {  //设置地图容器id
+        that.map = new AMap.Map("container", {  //设置地图容器id
           viewMode: "2D",    //是否为3D地图模式
           zoom: 11,           //初始化地图级别
           zooms: [11, 18],
@@ -160,23 +163,15 @@ export default {
 
         let markerList = []
         arr.forEach(item=> {
-              let marker = new AMap.Marker({
-                position: [item[0], item[1]],   // 经纬度对象，也可以是经纬度构成的一维数组[116.39, 39.9]
-                offset: new AMap.Pixel(0, 0)
-              });
-              markerList.push(marker)
+          let marker = new AMap.Marker({
+            position: [item[0], item[1]],   // 经纬度对象，也可以是经纬度构成的一维数组[116.39, 39.9]
+            offset: new AMap.Pixel(0, 0)
+          });
+          markerList.push(marker)
         })
         that.map.add(markerList)
 
-        // 链接支洞线
-        // console.log(this.allPoint)
-        // let holePolyLine1 = new AMap.Polyline({
-        //   path: this.allPoint.slice(4,32),
-        //   strokeColor: '#111',
-        //   strokeWeight: 10,
-        //   strokeStyle: 'dashed'
-        // })
-        // this.map.add(holePolyLine1)
+        that.map.setMapStyle("amap://styles/c6d24a1278128af5853718598c0cf48e")
 
 
         this.map.plugin('AMap.MoveAnimation', function () {
@@ -202,18 +197,23 @@ export default {
           });
 
           that.truckMarker.on('moving', function (e) {
-            console.log("ON Moving=>", e);
+            // console.log("ON Moving=>", e);
+            // 之前的e.index
+            that.beforePoint = that.afterPoint
+            // 之后的e.index
+            // 每次index发生变化时 代表车辆经过了一个真实的点（后端返回的点而不是高德算法生成的点） 此时进度条 + 一个step长度
+            that.afterPoint = e.index
+
+            // console.log(that.beforePoint, that.afterPoint)
+
+            if(that.afterPoint > that.beforePoint) {
+              console.log('aaabbbccc')
+              let step =  100 / Number(carLine2.length)
+              that.timeHold = that.timeHold + step;
+            }
+
             passedPolyline.setPath(e.passedPath);
 
-            // let length = 0
-            // for(let key in that.timeMarks) {
-            //   console.log(key)
-            //   length +=1
-            // }
-            // console.log(length)
-
-            let step =  100 / Number(that.allPoint.slice(11,30).length)
-            that.timeHold = that.timeHold + step;
 
             that.map.setCenter(e.target.getPosition(), true)
           });
@@ -242,11 +242,13 @@ export default {
           return [item.longitude, item.latitude]
         })
 
+        console.log('carlinge length', carLine2.length)
+
         newcarLine = this.transformGps(newcarLine)
 
         this.truckMarker.moveAlong(newcarLine, {
           // 每一段的时长
-          duration: 150,//可根据实际采集时间间隔设置
+          duration: 200,//可根据实际采集时间间隔设置
           // JSAPI2.0 是否延道路自动设置角度在 moveAlong 里设置
           autoRotation: true,
           zoom: 17

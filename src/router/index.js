@@ -25,6 +25,22 @@ const routes = [
     // this generates a separate chunk (about.[hash].js) for this route
     // which is lazy-loaded when the route is visited.
     component: () => import(/* webpackChunkName: "about" */ '../views/TruckView.vue')
+  },
+  {
+    path: '/3damap',
+    name: 'ThreeDAmap',
+    // route level code-splitting
+    // this generates a separate chunk (about.[hash].js) for this route
+    // which is lazy-loaded when the route is visited.
+    component: () => import(/* webpackChunkName: "about" */ '../views/ThreeDAmap.vue')
+  } ,
+  {
+    path: '/mapEdit',
+    name: 'mapEdit',
+    // route level code-splitting
+    // this generates a separate chunk (about.[hash].js) for this route
+    // which is lazy-loaded when the route is visited.
+    component: () => import(/* webpackChunkName: "about" */ '../views/MapEdit/index.vue')
   }
 ]
 
