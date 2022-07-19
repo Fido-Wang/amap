@@ -1,7 +1,7 @@
 <template>
   <div class="box">
     <button @click="drawLine">drawLine</button>
-    <!--<button @click="continueDrawLine">continue</button>-->
+    <button @click="continueDrawLine">continue</button>
     <div id="container"></div>
 
 <!--    <el-drawer-->
@@ -30,7 +30,9 @@ export default {
       // 所有地图上添加的点的集合
       allPointArray: [],
       // // 当前是否为继续画线的操作 默认false 点击 continue按钮后 变成true
-      // isContinue: false,
+      isContinue: false,
+      allMarkerObject: [],
+      curIndex: 0
     }
   },
   mounted() {
@@ -46,7 +48,8 @@ export default {
         "plugins": ["AMap.MouseTool"],           // 需要使用的的插件列表，如比例尺'AMap.Scale'等
       }).then((AMap)=> {
         that.map = new AMap.Map('container', {
-          viewMode: "2D",    //是否为3D地图模式
+          viewMode: "2D",//是否为3D地图模式
+          resizeEnable: true,
           zoom: 11,           //初始化地图级别
           zooms: [5, 18],
           center: [119.614192, 30.626411]//初始化地图中心点位置
@@ -63,21 +66,67 @@ export default {
           // var type = ev.type;
           console.log( lnglat)
 
-          that.allPointArray.push({lng: lnglat.lng, lat: lnglat.lat})
-          // console.log('POINTARRAY', that.allPointArray)
-          // 在鼠标左键点击过的地方打点
-          var marker = new AMap.Marker({
-            position: new AMap.LngLat(lnglat.lng, lnglat.lat),
-            title:'name'
-          })
-          that.map.add(marker)
-          marker.on('click', onMarkerClick)
-          function onMarkerClick(value) {
-            console.log('click 点', value)
+          that.allPointArray.push({lng: lnglat.lng, lat: lnglat.lat, index: that.curIndex})
+          that.curIndex += 1
+
+          console.log('markerlist', that.allPointArray)
+          if(!that.isContinue) { // 如果isContinue为false 则正常打点
+            // 在鼠标左键点击过的地方打点
+            var marker = new AMap.Marker({
+              position: new AMap.LngLat(lnglat.lng, lnglat.lat),
+              title:'name',
+              // 设置是否可以拖拽
+              draggable: true,
+            })
+            that.map.add(marker)
+            that.allMarkerObject.push(marker) // 存下所有的marker对象
+            marker.on('click', onMarkerClick)
+            marker.setDraggable(true)
+            marker.on('dragging', showInfoM); // 给marker绑定拖拽事件
+
+            // var line = new AMap.Polyline({
+            //   isOutline:true,
+            //   outlineColor:'white',
+            //   strokeColor: "#d0670a",
+            //   strokeOpacity: 1,
+            //   strokeWeight: 6,
+            //   strokeStyle: "solid",
+            // });
+            // line.setMap(that.map);
+            // var text = new AMap.Text({
+            //   text:'',
+            //   style:{'background-color':'#29b6f6',
+            //     'border-color':'#e1f5fe',
+            //     'font-size':'12px'}
+            // });
+            // text.setMap(that.map)
+            // computeDis();
+
+          }else { // 如果isContinue为true 则该位置不打点
+
           }
-
-
+          // marker的点击事件
+          function onMarkerClick(e) {
+            console.log('click 点', e)
+          }
+          // marker的拖拽事件
+          function showInfoM (e) {
+            console.log('拖拽后的停留的位置', {lng: e.lnglat.lng, lat: e.lnglat.lat})
+            console.log('11', that.map)
+          }
+          // 计算两点之间距离
+          // function computeDis(){
+          //   var p1 = that.allMarkerObject[that.allMarkerObject.length-1].getPosition();
+          //   var p2 = that.allMarkerObject[that.allMarkerObject.length-2].getPosition();
+          //   var textPos = p1.divideBy(2).add(p2.divideBy(2));
+          //   var distance = Math.round(p1.distance(p2));
+          //   var path = [p1,p2];
+          //   line.setPath(path);
+          //   text.setText(distance+'米')
+          //   text.setPosition(textPos)
+          // }
           });
+
       }).catch((e)=>{
         console.error(e);  //加载错误提示
       });
@@ -85,15 +134,35 @@ export default {
 
     // 开始画线
     drawLine() {
-      let mouseTool = new AMap.MouseTool(this.map);
+      let that = this
+      that.isContinue = false
+      let mouseTool = new AMap.MouseTool(that.map);
       mouseTool.polyline({
         strokeColor: "#d0670a",
         strokeOpacity: 1,
         strokeWeight: 6,
         strokeStyle: "solid",
+        showDir:true,
+        dirColor:'white',
       });
     },
 
+    // 继续画线
+    continueDrawLine() {
+      let that = this
+      that.isContinue = true
+      let mouseTool = new AMap.MouseTool(that.map);
+      console.log('mousetoolConsole.log', mouseTool)
+
+      mouseTool.polyline({
+        strokeColor: "#d0670a",
+        strokeOpacity: 1,
+        strokeWeight: 6,
+        strokeStyle: "solid",
+        showDir:true,
+        dirColor:'pink',
+      });
+    },
 
     handleClose() { }
   }
