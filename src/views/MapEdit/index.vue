@@ -1,8 +1,38 @@
 <template>
   <div class="box">
-    <button @click="drawLine">drawLine</button>
-    <button @click="continueDrawLine">continue</button>
-    <div id="container"></div>
+    <button @click="draw('polyline')">画线</button>
+<!--    <button @click="draw('marker')">打点</button>-->
+    <button @click="drawMarker">打点</button>
+    <button @click="end">结束</button>
+<!--    <button @click="continueDrawLine">continue</button>-->
+    <div id="container">
+      <div class="left-drawer" :style="{ display: isShowDrawer }">
+        <el-form ref="form" :model="form" label-width="80px">
+          <el-form-item label="标签名称">
+            <el-input v-model="form.markerName"></el-input>
+          </el-form-item>
+          <el-form-item label="坐标经度">
+            <el-input v-model="form.markerLng" placeholder="例：129.12345"></el-input>
+          </el-form-item>
+          <el-form-item label="坐标纬度">
+            <el-input v-model="form.markerLat" placeholder="例：129.12345"></el-input>
+          </el-form-item>
+          <el-form-item label="标签类型">
+            <el-select v-model="form.markerType" placeholder="请选择">
+              <el-option label="里程控制点" value="1"></el-option>
+              <el-option label="构筑物" value="2"></el-option>
+              <el-option label="标段分割点" value="3"></el-option>
+              <el-option label="事件点" value="4"></el-option>
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+
+            <el-button type="primary" @click="closeDrawer">取消</el-button>
+            <el-button type="primary" @click="savePointInfo">保存</el-button>
+          </el-form-item>
+        </el-form>
+      </div>
+    </div>
 
 <!--    <el-drawer-->
 <!--        title="我是标题"-->
@@ -13,6 +43,7 @@
 <!--        :before-close="handleClose">-->
 <!--      <span>我来啦!</span>-->
 <!--    </el-drawer>-->
+
   </div>
 </template>
 
@@ -30,9 +61,19 @@ export default {
       // 所有地图上添加的点的集合
       allPointArray: [],
       // // 当前是否为继续画线的操作 默认false 点击 continue按钮后 变成true
-      isContinue: false,
+      // isContinue: false,
       allMarkerObject: [],
-      curIndex: 0
+      curIndex: 0,
+      isDrawMarker: false, // 当前是否为打点 默认为false（画线）
+      isDrawPolyline: false, // 当前是否为画线
+      curMarkerPosition: {}, // 当前打点的marker的位置
+      isShowDrawer: 'block', // 是否展示左侧drawer
+      form: {
+        markerName: '',
+        markerLng: '',
+        markerLat: '',
+        markerType: ''
+      }
     }
   },
   mounted() {
@@ -54,116 +95,125 @@ export default {
           zooms: [5, 18],
           center: [119.614192, 30.626411]//初始化地图中心点位置
         });
+        that.mouseTool = new AMap.MouseTool(that.map); // 创建鼠标工具实例
+
 
         that.map.on('click', function (ev) {
-          // 触发事件的对象
-          // var target = ev.target;
-          // 触发事件的地理坐标，AMap.LngLat 类型
           var lnglat = ev.lnglat;
-          // 触发事件的像素坐标，AMap.Pixel 类型
-          // var pixel = ev.pixel;
-          // 触发事件类型
-          // var type = ev.type;
-          console.log( lnglat)
+          if(that.isDrawMarker) {
+            that.curMarkerPosition = {lng: lnglat.lng, lat: lnglat.lat} // 当前打的marker的位置
+            console.log('curpointposition', that.curMarkerPosition)
+            that.allPointArray.push({lng: lnglat.lng, lat: lnglat.lat})
 
-          that.allPointArray.push({lng: lnglat.lng, lat: lnglat.lat, index: that.curIndex})
-          that.curIndex += 1
-
-          console.log('markerlist', that.allPointArray)
-          if(!that.isContinue) { // 如果isContinue为false 则正常打点
-            // 在鼠标左键点击过的地方打点
-            var marker = new AMap.Marker({
-              position: new AMap.LngLat(lnglat.lng, lnglat.lat),
+            console.log(that.curMarkerPosition.lng, that.curMarkerPosition.lat)
+            let marker = new AMap.Marker({
+              position: new AMap.LngLat(that.curMarkerPosition.lng, that.curMarkerPosition.lat),
               title:'name',
               // 设置是否可以拖拽
-              draggable: true,
+              draggable: false,
             })
+
+            console.log('mm', marker)
+            marker.setTitle('我是marker的title')
+            let text = marker._position.lng + ',' + marker._position.lat
+            marker.setLabel({
+              offset: new AMap.Pixel(20, 20),  //设置文本标注偏移量
+              content: `<div class='info'>${text}</div>`, //设置文本标注内容
+              direction: 'right' //设置文本标注方位
+            });
+            // 给每个marker添加点击事件
+            marker.on('click', clickMarker)
+
             that.map.add(marker)
-            that.allMarkerObject.push(marker) // 存下所有的marker对象
-            marker.on('click', onMarkerClick)
-            marker.setDraggable(true)
-            marker.on('dragging', showInfoM); // 给marker绑定拖拽事件
+            console.log('markerobj', marker)
+            that.allMarkerObject.push(marker)
 
-            // var line = new AMap.Polyline({
-            //   isOutline:true,
-            //   outlineColor:'white',
-            //   strokeColor: "#d0670a",
-            //   strokeOpacity: 1,
-            //   strokeWeight: 6,
-            //   strokeStyle: "solid",
-            // });
-            // line.setMap(that.map);
-            // var text = new AMap.Text({
-            //   text:'',
-            //   style:{'background-color':'#29b6f6',
-            //     'border-color':'#e1f5fe',
-            //     'font-size':'12px'}
-            // });
-            // text.setMap(that.map)
-            // computeDis();
+            that.allMarkerObject.forEach(item=> {
+              var contextMenu = new AMap.ContextMenu();
 
-          }else { // 如果isContinue为true 则该位置不打点
+              //右键放大
+              contextMenu.addItem("移动", function () {
+                // that.map.zoomIn();
+              }, 0);
+
+              //右键缩小
+              contextMenu.addItem("删除", function () {
+                // that.map.zoomOut();
+              }, 1);
+              // //绑定鼠标右击事件——弹出右键菜单
+              item.on('rightclick', function (e) {
+                contextMenu.open(that.map, e.lnglat);
+              });
+              console.log('777', item)
+              // contextMenu.open(that.map, new AMap.LngLat(item.position[0], item.position[1]))
+            })
 
           }
-          // marker的点击事件
-          function onMarkerClick(e) {
-            console.log('click 点', e)
+          function clickMarker(e) {
+            that.isShowDrawer = 'block'
+            console.log('click params', e)
+            that.form.markerLng = e.target._opts.position.lng
+            that.form.markerLat = e.target._opts.position.lat
           }
-          // marker的拖拽事件
-          function showInfoM (e) {
-            console.log('拖拽后的停留的位置', {lng: e.lnglat.lng, lat: e.lnglat.lat})
-            console.log('11', that.map)
-          }
-          // 计算两点之间距离
-          // function computeDis(){
-          //   var p1 = that.allMarkerObject[that.allMarkerObject.length-1].getPosition();
-          //   var p2 = that.allMarkerObject[that.allMarkerObject.length-2].getPosition();
-          //   var textPos = p1.divideBy(2).add(p2.divideBy(2));
-          //   var distance = Math.round(p1.distance(p2));
-          //   var path = [p1,p2];
-          //   line.setPath(path);
-          //   text.setText(distance+'米')
-          //   text.setPosition(textPos)
-          // }
-          });
+
+          console.log('所有点的集合', that.allPointArray)
+        })
 
       }).catch((e)=>{
         console.error(e);  //加载错误提示
       });
     },
-
-    // 开始画线
-    drawLine() {
+    end() {
       let that = this
-      that.isContinue = false
-      let mouseTool = new AMap.MouseTool(that.map);
-      mouseTool.polyline({
-        strokeColor: "#d0670a",
-        strokeOpacity: 1,
-        strokeWeight: 6,
-        strokeStyle: "solid",
-        showDir:true,
-        dirColor:'white',
-      });
+      that.mouseTool.close()
     },
 
-    // 继续画线
-    continueDrawLine() {
+    // 开始绘图
+    draw(type) {
       let that = this
-      that.isContinue = true
-      let mouseTool = new AMap.MouseTool(that.map);
-      console.log('mousetoolConsole.log', mouseTool)
+      that.mouseTool.close()
+      that.isDrawMarker = false
 
-      mouseTool.polyline({
-        strokeColor: "#d0670a",
-        strokeOpacity: 1,
-        strokeWeight: 6,
-        strokeStyle: "solid",
-        showDir:true,
-        dirColor:'pink',
-      });
+      console.log(AMap)
+
+        switch(type){
+        //   case 'marker':{
+        //     that.isDrawMarker = true
+        //     that.mouseTool.marker({
+        //       //同Marker的Option设置
+        //       show: false
+        //     });
+        //
+        //     break;
+        //   }
+          case 'polyline':{
+            that.isDrawPolyline = true
+            that.mouseTool.polyline({
+              strokeColor: "#d0670a",
+              strokeOpacity: 1,
+              strokeWeight: 6,
+              strokeStyle: "solid",
+              showDir:true,
+              dirColor:'white',
+            });
+            break;
+          }
+        }
+    },
+    drawMarker() {
+      let that = this
+      that.mouseTool.close()
+      that.isDrawMarker = true
     },
 
+    // marker的drawer取消按钮
+    closeDrawer() {
+      this.isShowDrawer = "none"
+    },
+    // 保存marker的drawer的按钮
+    savePointInfo() {
+
+    },
     handleClose() { }
   }
 }
@@ -176,7 +226,28 @@ export default {
   background: #999;
 }
 #container {
+  position: relative;
   width: 100%;
   height: 100%;
+}
+.amap-marker-label{
+  border: 0;
+  background-color: transparent;
+}
+
+.info{
+  position: relative;
+  top: 0;
+  right: 0;
+  min-width: 0;
+}
+.left-drawer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 400px;
+  background: #fff;
+  z-index: 999;
 }
 </style>

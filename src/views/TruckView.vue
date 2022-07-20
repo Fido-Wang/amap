@@ -171,6 +171,27 @@ export default {
         })
         that.map.add(markerList)
 
+        // 给每个point添加右键菜单
+        markerList.forEach(item=> {
+          var contextMenu = new AMap.ContextMenu();
+
+          //右键放大
+          contextMenu.addItem("放大一级", function () {
+            that.map.zoomIn();
+          }, 0);
+
+          //右键缩小
+          contextMenu.addItem("缩小一级", function () {
+            that.map.zoomOut();
+          }, 1);
+          // //绑定鼠标右击事件——弹出右键菜单
+          item.on('rightclick', function (e) {
+            contextMenu.open(that.map, e.lnglat);
+          });
+          console.log('777', item)
+          // contextMenu.open(that.map, new AMap.LngLat(item.position[0], item.position[1]))
+        })
+
         that.map.setMapStyle("amap://styles/c6d24a1278128af5853718598c0cf48e")
 
 
