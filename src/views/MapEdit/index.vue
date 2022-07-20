@@ -73,7 +73,9 @@ export default {
         markerLng: '',
         markerLat: '',
         markerType: ''
-      }
+      },
+      curEditPoint: [],
+      curEditIndex: [], // 当前正在编辑的marker的点的inidex
     }
   },
   mounted() {
@@ -114,7 +116,7 @@ export default {
             })
 
             console.log('mm', marker)
-            marker.setTitle('我是marker的title')
+            // marker.setTitle('我是marker的title')
             let text = marker._position.lng + ',' + marker._position.lat
             marker.setLabel({
               offset: new AMap.Pixel(20, 20),  //设置文本标注偏移量
@@ -154,9 +156,15 @@ export default {
             console.log('click params', e)
             that.form.markerLng = e.target._opts.position.lng
             that.form.markerLat = e.target._opts.position.lat
+            that.curEditPoint = [e.target._opts.position.lng, e.target._opts.position.lat] // 当前正在编辑的点的经纬度
+            that.allPointArray.forEach((item, index)=> {
+              if(item.lng == e.target._opts.position.lng && item.lat == e.target._opts.position.lat) {
+                that.curEditIndex = index
+              }
+            })
           }
 
-          console.log('所有点的集合', that.allPointArray)
+          console.log('当前所有的marker的点的经纬度的集合', that.allPointArray)
         })
 
       }).catch((e)=>{
@@ -212,7 +220,12 @@ export default {
     },
     // 保存marker的drawer的按钮
     savePointInfo() {
-
+      // this.form.markerLngt
+      this.allPointArray[this.curEditIndex].lng = Number(this.form.markerLng)
+      this.allPointArray[this.curEditIndex].lat = Number(this.form.markerLat)
+      this.allMarkerObject[this.curEditIndex]._position.lng = Number(this.form.markerLng)
+      this.allMarkerObject[this.curEditIndex]._position.lat = Number(this.form.markerLat)
+      console.log('修改之后的 allPointArray', this.allPointArray)
     },
     handleClose() { }
   }
