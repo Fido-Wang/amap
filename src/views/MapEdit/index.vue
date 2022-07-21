@@ -58,8 +58,9 @@ export default {
       mouseTool: null,
       drawer: true,
       direction: 'left',
-      // 所有地图上添加的点的集合
-      allPointArray: [],
+
+      allPointArray: [], // 所有地图上添加的marker的经纬度的集合
+      allPolylineArray: [], // 所有地图上添加的polyline的线段的起始位置的经纬度的集合  本身是一个数组 数组中的每项也是一个数组（保存这一条连续的线段的关键点）
       // // 当前是否为继续画线的操作 默认false 点击 continue按钮后 变成true
       // isContinue: false,
       allMarkerObject: [],
@@ -67,7 +68,7 @@ export default {
       isDrawMarker: false, // 当前是否为打点 默认为false（画线）
       isDrawPolyline: false, // 当前是否为画线
       curMarkerPosition: {}, // 当前打点的marker的位置
-      isShowDrawer: 'block', // 是否展示左侧drawer
+      isShowDrawer: 'none', // 是否展示左侧drawer
       form: {
         markerName: '',
         markerLng: '',
@@ -99,13 +100,40 @@ export default {
         });
         that.mouseTool = new AMap.MouseTool(that.map); // 创建鼠标工具实例
 
+        // 监听鼠标双击事件 如果在画线过程中 双击代表这一条线画完 此时往 allPolylineArray中添加一个新的线段空数组
+        that.map.on('dblclick',function(e) {
+          console.log('dbclick',e)
+          // that.allPolylineArray.push([])
+          that.mouseTool.close()
+          that.isDrawMarker = false
+          that.isDrawPolyline = false
+        })
+
+        // 监听鼠标右键单击事件 点击后退出当前的画线或者画点操作
+        that.map.on('rightclick',function(e) {
+          console.log('rightclick',e)
+          that.isDrawMarker = false
+          that.isDrawPolyline = false
+          that.mouseTool.close()
+
+        })
+
+        // 监听鼠标绘制覆盖物事件
+        that.mouseTool.on('draw', function(event) {
+          console.log('为绘制出来的覆盖物对象', event.obj)
+          // event.obj 为绘制出来的覆盖物对象
+          console.log('覆盖物对象绘制完成')
+        })
 
         that.map.on('click', function (ev) {
+          console.log('click')
           var lnglat = ev.lnglat;
           if(that.isDrawMarker) {
             that.curMarkerPosition = {lng: lnglat.lng, lat: lnglat.lat} // 当前打的marker的位置
-            console.log('curpointposition', that.curMarkerPosition)
-            that.allPointArray.push({lng: lnglat.lng, lat: lnglat.lat})
+            // console.log('curpointposition', that.curMarkerPosition)
+            that.allPointArray.push({lng: lnglat.lng, lat: lnglat.lat, name: '', type: ''})
+            console.log('当前所有的marker的点的经纬度的集合', that.allPointArray)
+
 
             console.log(that.curMarkerPosition.lng, that.curMarkerPosition.lat)
             let marker = new AMap.Marker({
@@ -116,8 +144,14 @@ export default {
             })
 
             console.log('mm', marker)
-            // marker.setTitle('我是marker的title')
+            let title = ''
+            that.allPointArray.forEach(item=> {
+              if(item.lng == marker._position.lng && item.lat == marker._position.lat) {
+                title = item.name
+              }
+            })
             let text = marker._position.lng + ',' + marker._position.lat
+            marker.setTitle(title)
             marker.setLabel({
               offset: new AMap.Pixel(20, 20),  //设置文本标注偏移量
               content: `<div class='info'>${text}</div>`, //设置文本标注内容
@@ -127,7 +161,7 @@ export default {
             marker.on('click', clickMarker)
 
             that.map.add(marker)
-            console.log('markerobj', marker)
+            // console.log('markerobj', marker)
             that.allMarkerObject.push(marker)
 
             that.allMarkerObject.forEach(item=> {
@@ -146,9 +180,25 @@ export default {
               item.on('rightclick', function (e) {
                 contextMenu.open(that.map, e.lnglat);
               });
-              console.log('777', item)
+              // console.log('777', item)
               // contextMenu.open(that.map, new AMap.LngLat(item.position[0], item.position[1]))
             })
+
+          }else if(that.isDrawPolyline) { // 如果当前为画线状态 监听鼠标点击 把点放入数组中
+            if(that.allPolylineArray.length >1) {
+              console.log('打印上次的最后一个点',that.allPolylineArray[that.allPolylineArray.length -2].slice(-1)[0])
+              // 比较上一个点 和 当前的点的经纬度对比 如果两点之间的距离很近 则把两个点当作一个点保存
+              let lastMarker = that.allPolylineArray[that.allPolylineArray.length -2].slice(-1)[0]
+
+              console.log('当前的点',{lng: lnglat.lng, lat: lnglat.lat})
+              if(Math.abs(lastMarker.lng- lnglat.lng) < 0.001 && Math.abs(lastMarker.lat - lnglat.lat) < 0.001) { // 绝对值差
+                // 如果当前的点和上一个点被判定为同一位置 则删除点击画线按钮后that.allPolylineArry  push的一个空数组 同时该点加入到上一条线段的后面
+                that.allPolylineArray.pop()
+                return
+              }
+            }
+              that.allPolylineArray[that.allPolylineArray.length -1 ].push({lng: lnglat.lng, lat: lnglat.lat})
+              console.log('所有polyline的起始点的经纬度集合', that.allPolylineArray)
 
           }
           function clickMarker(e) {
@@ -156,7 +206,16 @@ export default {
             console.log('click params', e)
             that.form.markerLng = e.target._opts.position.lng
             that.form.markerLat = e.target._opts.position.lat
+            that.allPointArray.forEach(item=> {
+              if(item.lng ==e.target._opts.position.lng && item.lat == e.target._opts.position.lat) {
+                that.form.markerName = item.name
+                that.form.markerType= item.type
+              }
+            })
+            // that.form.markerLat = e.target._opts.position.lat
+            // that.form.markerLat = e.target._opts.position.lat
             that.curEditPoint = [e.target._opts.position.lng, e.target._opts.position.lat] // 当前正在编辑的点的经纬度
+            // 遍历当前所有的marker的经纬度的数组 匹配到当前点击的marker的经纬度 获取到该点在数组中的索引index
             that.allPointArray.forEach((item, index)=> {
               if(item.lng == e.target._opts.position.lng && item.lat == e.target._opts.position.lat) {
                 that.curEditIndex = index
@@ -164,8 +223,12 @@ export default {
             })
           }
 
-          console.log('当前所有的marker的点的经纬度的集合', that.allPointArray)
         })
+
+        // that.map.event.addListener("polyline",'click',function(e){
+        //   console.log('eeeeeee', e)  //设置组成该折线的节点数组
+        // })
+
 
       }).catch((e)=>{
         console.error(e);  //加载错误提示
@@ -174,6 +237,8 @@ export default {
     end() {
       let that = this
       that.mouseTool.close()
+      that.isDrawPolyline = false
+      that.isDrawMarker = false
     },
 
     // 开始绘图
@@ -196,6 +261,7 @@ export default {
         //   }
           case 'polyline':{
             that.isDrawPolyline = true
+            that.allPolylineArray.push([])
             that.mouseTool.polyline({
               strokeColor: "#d0670a",
               strokeOpacity: 1,
@@ -204,6 +270,7 @@ export default {
               showDir:true,
               dirColor:'white',
             });
+
             break;
           }
         }
@@ -223,9 +290,12 @@ export default {
       // this.form.markerLngt
       this.allPointArray[this.curEditIndex].lng = Number(this.form.markerLng)
       this.allPointArray[this.curEditIndex].lat = Number(this.form.markerLat)
+      this.allPointArray[this.curEditIndex].name = this.form.markerName
+      this.allPointArray[this.curEditIndex].type = this.form.markerType
       this.allMarkerObject[this.curEditIndex]._position.lng = Number(this.form.markerLng)
       this.allMarkerObject[this.curEditIndex]._position.lat = Number(this.form.markerLat)
-      console.log('修改之后的 allPointArray', this.allPointArray)
+      this.isShowDrawer = 'none'
+      // console.log('修改之后的 allPointArray', this.allPointArray)
     },
     handleClose() { }
   }

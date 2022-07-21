@@ -15,3 +15,30 @@
 //   })
 //   that.map.add(marker)
 // });
+
+// 点的结构
+[
+    {
+        lng: '',
+        lat: '',
+        name: '',
+        type: '',
+        imageToke: ''
+    },
+    {
+        lng: '',
+        lat: '',
+        name: '',
+        type: '',
+    },
+]
+
+// 线的结构
+[
+    [
+        {
+            lng: '',
+            lat: '',
+        }
+    ]
+]
