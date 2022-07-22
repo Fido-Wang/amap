@@ -36,9 +36,9 @@
       </div>
 
 
-      <div class="left-drawer" :style="{ display: isShowLineEditDrawer }">
+      <div class="left-drawer" :style="{ display: isShowLineEditDrawer, overflow: 'auto' }">
         <h3>修改线段</h3>
-        <el-form ref="form" :model="lineForm" label-width="100px">
+        <el-form ref="form" label-width="100px">
           <el-form-item label="线段类型">
             <el-select v-model="lineForm.type" placeholder="请选择">
               <el-option label="里程控制点" value="1"></el-option>
@@ -51,25 +51,54 @@
             <el-input v-model="lineForm.length"></el-input>
           </el-form-item>
           <el-form-item label="当前状态">
-            <el-input v-model="lineForm.status" placeholder="例：129.12345"></el-input>
+            <el-input v-model="lineForm.status" placeholder=""></el-input>
           </el-form-item>
           <el-form-item label="沟槽深度">
-            <el-input v-model="lineForm.depth" placeholder="例：129.12345"></el-input>
+            <el-input v-model="lineForm.depth" placeholder=""></el-input>
           </el-form-item>
           <el-form-item label="沟槽宽度">
-            <el-input v-model="lineForm.width" placeholder="例：129.12345"></el-input>
+            <el-input v-model="lineForm.width" placeholder=""></el-input>
           </el-form-item>
           <el-form-item label="垫层厚度">
-            <el-input v-model="lineForm.thickness" placeholder="例：129.12345"></el-input>
+            <el-input v-model="lineForm.thickness" placeholder=""></el-input>
           </el-form-item>
           <el-form-item label="垫层材质">
-            <el-input v-model="lineForm.material" placeholder="例：129.12345"></el-input>
+            <el-input v-model="lineForm.material" placeholder=""></el-input>
           </el-form-item>
+
+<!--          <div v-for="(item, index) in lineForm.path" :key="index" style="display: flex">-->
+<!--            <el-form-item label-width="60px " style="width: 50%"  label="lng">-->
+<!--              <el-input  placeholder="经度">{{ item.lng }}</el-input>-->
+<!--            </el-form-item>-->
+<!--            <el-form-item label-width="60px" style="width: 50%" label="lat">-->
+<!--              <el-input  placeholder="纬度">{{ // item.lat }}</el-input>-->
+<!--            </el-form-item>-->
+<!--          </div>-->
+
+          <el-table
+              :data="lineForm.path"
+              style="width: 100%">
+            <el-table-column
+                label="经度"
+                width="180">
+              <template v-slot="{row}">
+                <el-input v-model="row.lng" placeholder="经度" type="number"></el-input>
+              </template>
+            </el-table-column>
+            <el-table-column
+                label="纬度"
+                width="180">
+              <template v-slot="{row}">
+                 <el-input v-model="row.lat" placeholder="纬度" type="number"></el-input>
+              </template>
+            </el-table-column>
+
+          </el-table>
 
           <el-form-item>
 
             <el-button type="primary" @click="closeDrawer">取消</el-button>
-            <el-button type="primary" @click="savePointInfo">保存</el-button>
+            <el-button type="primary" @click="savePolylineInfo">保存</el-button>
           </el-form-item>
         </el-form>
       </div>
@@ -109,6 +138,7 @@ export default {
       isDrawMarker: false, // 当前是否为打点 默认为false（画线）
       isDrawPolyline: false, // 当前是否为画线
       curMarkerPosition: {}, // 当前打点的marker的位置
+      curMarkerObject: {}, // 当前正在编辑的marker的实例对象
       isShowDrawer: 'none', // 是否展示左侧drawer
       // 当前marker的info
       form: {
@@ -126,7 +156,12 @@ export default {
         width: '', // 沟槽宽度
         thickness: '', // 垫层厚度
         material: '', // 垫层材质
-        path: [], // 线段的path数组
+        path: [
+          // {
+          //   lng:'',
+          //   lat: '',
+          // }
+        ], // 线段的path数组
       },
       curEditPoint: [],
       curEditIndex: [], // 当前正在编辑的marker的点的inidex
@@ -175,23 +210,21 @@ export default {
         })
 
         // 监听鼠标绘制覆盖物事件
-        that.mouseTool.on('draw', function(event) {
-          console.log('为绘制出来的覆盖物对象', event.obj)
-          // event.obj 为绘制出来的覆盖物对象
-          console.log('覆盖物对象绘制完成')
-        })
+        // that.mouseTool.on('draw', function(event) {
+        //   console.log('为绘制出来的覆盖物对象', event.obj)
+        //   // event.obj 为绘制出来的覆盖物对象
+        //   console.log('覆盖物对象绘制完成')
+        // })
 
+        // 监听地图点击事件 如果当前为打点操作 则添加marker  如果当前为画线操作 把线条经过的点存入path中
         that.map.on('click', function (ev) {
           console.log('click')
           var lnglat = ev.lnglat;
           if(that.isDrawMarker) {
             that.curMarkerPosition = {lng: lnglat.lng, lat: lnglat.lat} // 当前打的marker的位置
-            // console.log('curpointposition', that.curMarkerPosition)
             that.allPointArray.push({lng: lnglat.lng, lat: lnglat.lat, name: '', type: ''})
             console.log('当前所有的marker的点的经纬度的集合', that.allPointArray)
 
-
-            console.log(that.curMarkerPosition.lng, that.curMarkerPosition.lat)
             let marker = new AMap.Marker({
               position: new AMap.LngLat(that.curMarkerPosition.lng, that.curMarkerPosition.lat),
               title:'name',
@@ -199,15 +232,7 @@ export default {
               draggable: false,
             })
 
-            console.log('mm', marker)
-            let title = ''
-            that.allPointArray.forEach(item=> {
-              if(item.lng == marker._position.lng && item.lat == marker._position.lat) {
-                title = item.name
-              }
-            })
             let text = marker._position.lng + ',' + marker._position.lat
-            marker.setTitle(title)
             marker.setLabel({
               offset: new AMap.Pixel(20, 20),  //设置文本标注偏移量
               content: `<div class='info'>${text}</div>`, //设置文本标注内容
@@ -217,28 +242,28 @@ export default {
             marker.on('click', clickMarker)
 
             that.map.add(marker)
-            // console.log('markerobj', marker)
             that.allMarkerObject.push(marker)
 
-            that.allMarkerObject.forEach(item=> {
-              var contextMenu = new AMap.ContextMenu();
-
-              //右键放大
-              contextMenu.addItem("移动", function () {
-                // that.map.zoomIn();
-              }, 0);
-
-              //右键缩小
-              contextMenu.addItem("删除", function () {
-                // that.map.zoomOut();
-              }, 1);
-              // //绑定鼠标右击事件——弹出右键菜单
-              item.on('rightclick', function (e) {
-                contextMenu.open(that.map, e.lnglat);
-              });
-              // console.log('777', item)
-              // contextMenu.open(that.map, new AMap.LngLat(item.position[0], item.position[1]))
-            })
+            // 给每个marker添加右键菜单
+            // that.allMarkerObject.forEach(item=> {
+            //   var contextMenu = new AMap.ContextMenu();
+            //
+            //   //右键放大
+            //   contextMenu.addItem("移动", function () {
+            //     // that.map.zoomIn();
+            //   }, 0);
+            //
+            //   //右键缩小
+            //   contextMenu.addItem("删除", function () {
+            //     // that.map.zoomOut();
+            //   }, 1);
+            //   // //绑定鼠标右击事件——弹出右键菜单
+            //   item.on('rightclick', function (e) {
+            //     contextMenu.open(that.map, e.lnglat);
+            //   });
+            //   // console.log('777', item)
+            //   // contextMenu.open(that.map, new AMap.LngLat(item.position[0], item.position[1]))
+            // })
 
           }else if(that.isDrawPolyline) { // 如果当前为画线状态 监听鼠标点击 把点放入数组中
             if(that.allPolylineArray.length >1) {
@@ -260,14 +285,23 @@ export default {
           function clickMarker(e) {
             that.isShowDrawer = 'block'
             console.log('click params', e)
-            that.form.markerLng = e.target._opts.position.lng
-            that.form.markerLat = e.target._opts.position.lat
-            that.allPointArray.forEach(item=> {
-              if(item.lng ==e.target._opts.position.lng && item.lat == e.target._opts.position.lat) {
-                that.form.markerName = item.name
-                that.form.markerType= item.type
-              }
-            })
+            // that.curMarkerObject =
+            console.log('objobj', that.allMarkerObject)
+            // 获取当前正在编辑的marker的实例
+            that.curMarkerObject = that.allMarkerObject.filter(item=> {
+              return item._position.lng == e.target._opts.position.lng && item._position.lat  == e.target._opts.position.lat
+            })[0]
+            console.log('当前编辑的marker实例', that.curMarkerObject)
+
+            that.form.markerLng = that.curMarkerObject._position.lng
+            that.form.markerLat = that.curMarkerObject._position.lat
+            that.form.name = that.curMarkerObject._opts.title
+            // that.allPointArray.forEach(item=> {
+            //   if(item.lng ==e.target._opts.position.lng && item.lat == e.target._opts.position.lat) {
+            //     that.form.markerName = item.name
+            //     that.form.markerType= item.type
+            //   }
+            // })
             // that.form.markerLat = e.target._opts.position.lat
             // that.form.markerLat = e.target._opts.position.lat
             that.curEditPoint = [e.target._opts.position.lng, e.target._opts.position.lat] // 当前正在编辑的点的经纬度
@@ -324,11 +358,11 @@ export default {
             that.isDrawPolyline = true
             that.allPolylineArray.push([])
             that.mouseTool.polyline({
-              strokeColor: "#d0670a",
+              strokeColor: "#1582a7",
               strokeOpacity: 1,
               strokeWeight: 6,
               strokeStyle: "solid",
-              showDir:true,
+              showDir:false,
               dirColor:'white',
             });
 
@@ -346,6 +380,10 @@ export default {
     closeDrawer() {
       this.isShowDrawer = "none"
       this.isShowLineEditDrawer = "none"
+      // 恢复正在编辑的线段的样式
+      this.curPolylineObj.setOptions({
+        isOutline: false,
+      })
     },
     // 保存marker的drawer的按钮
     savePointInfo() {
@@ -354,11 +392,32 @@ export default {
       this.allPointArray[this.curEditIndex].lat = Number(this.form.markerLat)
       this.allPointArray[this.curEditIndex].name = this.form.markerName
       this.allPointArray[this.curEditIndex].type = this.form.markerType
-      this.allMarkerObject[this.curEditIndex]._position.lng = Number(this.form.markerLng)
-      this.allMarkerObject[this.curEditIndex]._position.lat = Number(this.form.markerLat)
+      // this.allMarkerObject[this.curEditIndex]._position.lng = Number(this.form.markerLng)
+      // this.allMarkerObject[this.curEditIndex]._position.lat = Number(this.form.markerLat)
+      this.allMarkerObject[this.curEditIndex].setPosition([Number(this.form.markerLng), Number(this.form.markerLat)]) // 在地图上重新设置marker更改后的位置
+      this.allMarkerObject[this.curEditIndex].setTitle(this.form.markerName) // 设置修改后的marker鼠标滑过点标记时的文字提示
+
+      let text = this.form.markerLng + ',' + this.form.markerLat
+      this.allMarkerObject[this.curEditIndex].setLabel({ // 设置修改后的marker的文本标记内容 （新的经纬度位置）
+        offset: new AMap.Pixel(20, 20),  //设置文本标注偏移量
+        content: `<div class='info'>${text}</div>`, //设置文本标注内容
+        direction: 'right' //设置文本标注方位
+      });
+
       this.isShowDrawer = 'none'
       this.isShowLineEditDrawer = 'none'
       // console.log('修改之后的 allPointArray', this.allPointArray)
+    },
+
+    // 保存修改后的polyline的按钮
+    savePolylineInfo() {
+      let that =this
+      // 恢复正在编辑的线段的样式
+      that.curPolylineObj.setOptions({
+        isOutline: false,
+      })
+      that.curPolylineObj.setPath(that.lineForm.path.map(item=> { return [item.lng, item.lat]})) // 在地图上重新设置polyline更改后的path
+      that.isShowLineEditDrawer = 'none'
     },
 
     // 修改线段 获取地图上所有的覆盖物 过滤出所有的线段 给每个线段绑定点击事件
@@ -374,11 +433,27 @@ export default {
       polylineCoverObj.forEach(item=> {
         item.on('click', (e)=> {
           console.log('click line', e, e.target._opts.path) // 点击的这条线段的所有的点的集合
-          that.curPolylineObj = e // 保存当前正在编辑的线段的实例
+          that.curPolylineObj = item // 保存当前正在编辑的线段的实例
+          // 设置正在编辑的线段的样式
+          that.curPolylineObj.setOptions({
+            isOutline: true,
+            outlineColor: '#ffdb73', // 线条描边颜色，此项仅在isOutline为true时有效，默认：#00B2D5
+            borderWeight: '3'
+          })
           that.curPolylinePath = e.target._opts.path // 保存当前正在编辑的线段的关键点的经纬度集合
           that.isShowLineEditDrawer = 'block'
+          that.lineForm.path = e.target._opts.path.map(item=> {
+            return {lng: item[0], lat: item[1]}
+          })
+          that.lineForm.path = JSON.parse(JSON.stringify(that.lineForm.path))
+          console.log('path', that.lineForm.path)
         })
       })
+    },
+
+    // 编辑marker的按钮
+    editMarker() {
+
     },
     handleClose() { }
   }
